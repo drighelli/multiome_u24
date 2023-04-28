@@ -66,14 +66,16 @@ plotTSNE(sce2, colour_by="labels",) +
     # scale_color_viridis_d(option="magma")
 
 
-
+# wget https://singlecell.broadinstitute.org/single_cell/data/public/SCP1039/a-single-cell-and-spatially-resolved-atlas-of-human-breast-cancers?filename=Whole_miniatlas_meta.csv
 atl <- read.csv("breast_cancer_miniatlas/Whole_miniatlas_meta.csv")
 atl <- atl[-1,]
 table(atl$celltype_major)
-
 library(Matrix)
+# wget https://singlecell.broadinstitute.org/single_cell/data/public/SCP1039/a-single-cell-and-spatially-resolved-atlas-of-human-breast-cancers?filename=matrix.mtx.gz
 mat <- readMM("breast_cancer_miniatlas/matrix.mtx.gz")
+# wget https://singlecell.broadinstitute.org/single_cell/data/public/SCP1039/a-single-cell-and-spatially-resolved-atlas-of-human-breast-cancers?filename=barcodes.tsv.gz
 bc <- read.table("breast_cancer_miniatlas/barcodes.tsv.gz", sep="\t")
+# wget https://singlecell.broadinstitute.org/single_cell/data/public/SCP1039/a-single-cell-and-spatially-resolved-atlas-of-human-breast-cancers?filename=features.tsv.gz
 feat <- read.table("breast_cancer_miniatlas/features.tsv.gz", sep="\t")
 
 scebcref <- SingleCellExperiment(assays=list("counts"=mat), rowData=feat, colData=atl)
