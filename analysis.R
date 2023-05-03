@@ -1,5 +1,5 @@
 # Downloading dataset
-# wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6543nnn/GSM6543828/suppl/GSM6543828_HBr_15_A.tar.gz
+# wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6543/GSM6543828/suppl/GSM6543828_HBr_15_A.tar.gz
 # 
 library(TENxMultiomeTools)
 # dir.create("outs")
@@ -133,3 +133,75 @@ levels(filtered$celltype) <- dflabs$pruned.labels
 
 plotTSNE(filtered, colour_by = "clusters", text_by = "celltype")
 
+gr <- as.data.frame(matrix(unlist(strsplit(rowData(altExp(filtered))$V1, split = ":|-")), byrow = TRUE,ncol=3))
+colnames(gr) <- c("chr", "start", "end")
+gr <- makeGRangesFromDataFrame(gr)
+names(gr) <- rowData(altExp(filtered))$V1
+# library(ChIPseeker)
+# BiocManager::install("org.Hs.eg.db")
+
+rranno <- annotatePeak(gr, tssRegion=c(-3000, 3000), TxDb=TxDb.Hsapiens.UCSC.hg38.knownGene, annoDb="org.Hs.eg.db")@anno
+rranno[which(rranno$SYMBOL == "COL1A1"),]
+
+tapply(counts(altExp(filtered)[names(rranno[which(rranno$SYMBOL == "COL1A1"),]),]), filtered$clusters, sum)
+filteredpb <- aggregateAcrossCells(altExp(filtered), ids=filtered$clusters)
+counts(filteredpb)[names(rranno[which(rranno$SYMBOL == "COL1A1"),]),]
+
+
+rranno[which(rranno$SYMBOL == "ETS1"),][5]
+counts(filteredpb)[names(rranno[which(rranno$SYMBOL == "ETS1"),][5]),]
+# library("Signac")
+# sig <- CreateChromatinAssay(counts = counts(altExp(filtered)), sep=c(":", "-"))
+# library("Seurat")
+# # seu <- as.Seurat(filtered)
+# seu <- CreateSeuratObject(counts=sig, assay="ATAC")
+# seu <- RunTFIDF(seu)
+# seu <- FindTopFeatures(seu, min.cutoff = "q0")
+# seu <- RunSVD(seu)
+# seu <- FindNeighbors(seu, reduction = "lsi", dims = 2:30)
+# seu <- FindClusters(seu, algorithm = 3)
+# 
+# seu@meta.data$seurat_clusters <- filtered$clusters
+#     
+# seu@active.ident <- filtered$clusters
+# seu <- RunUMAP(seu, reduction = "lsi", dims = 2:30)    
+# DimPlot(seu, label=TRUE)
+# ga <- GeneActivity(seu)
+# granges(seu)
+# library("BSgenome.Hsapiens.UCSC.hg38")
+# seu <- RegionStats(seu, genome=BSgenome.Hsapiens.UCSC.hg38)
+# seu <- LinkPeaks(seu, peak.assay = "ATAC", genes.use = c("ETS1", "COL1A1"))
+
+library("trackViewer")
+
+library(scran) 
+atac <- altExp(filtered)
+atac <- logNormCounts(atac)
+mi <- scoreMarkers(atac, filtered$clusters)
+mi[[6]]
+library(scater)
+chosen <- mi[[6]]
+ordered <- chosen[order(chosen$rank.logFC.cohen),]
+topRanked <- ordered[ordered$rank.logFC.cohen<=20,]
+atac$clusters <- filtered$clusters
+plotGroupedHeatmap(atac, features=rownames(topRanked), group="clusters", center=TRUE, show_rownames = FALSE, annotation_col=data.frame(celltype=filtered$celltype))
+
+atac_cafs <- atac[,filtered$celltype == "CAFs"]
+mi2 <- scoreMarkers(atac_cafs, atac_cafs$clusters)
+mi2
+chosen <- unique(rbind(mi2[["6"]], mi2[["2"]],mi2[["5"]],mi2[["10"]]))
+ordered <- chosen[order(chosen$rank.logFC.cohen),]
+topRanked <- ordered[ordered$rank.logFC.cohen<=5,]
+plotGroupedHeatmap(atac_cafs, features=unique(rownames(topRanked)), group="clusters", center=TRUE, show_rownames = FALSE)
+c("COL1A1", "ETS1") %in% rranno[rownames(topRanked),]$SYMBOL
+rranno[rownames(ordered)[1],]
+
+atac_epi <- atac[,filtered$celltype == "Cancer Epithelial"]
+mi3 <- scoreMarkers(atac_epi, atac_epi$clusters)
+mi3
+chosen <- rbind(mi3[["1"]], mi3[["7"]])
+ordered <- chosen[order(chosen$rank.logFC.cohen),]
+topRanked <- ordered[ordered$rank.logFC.cohen<=20,]
+plotGroupedHeatmap(atac_epi, features=rownames(topRanked), group="clusters", center=TRUE, show_rownames = FALSE)
+c("COL1A1", "ETS1") %in% rranno[rownames(topRanked),]$SYMBOL
+rranno[rownames(ordered)[1],]
