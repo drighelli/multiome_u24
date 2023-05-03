@@ -91,6 +91,45 @@ library(muscat)
 library(BiocParallel)
 scebcrefagg <- aggregateData(scebcref, assay="counts", fun="sum", by=c("celltype_major", "Patient"), BPPARAM=MulticoreParam(workers=8))
 
-# scebcrefagg <- logNorm
-# dflabs <- SingleR(test=sce, ref=ref, labels=ref$label.main)
+agg_mat <- lapply(seq_along(assayNames(scebcrefagg)), function(i) assay(scebcrefagg, i)) |> do.call(cbind, args=_)
+scebcreffin <- SingleCellExperiment(assays = list(counts = agg_mat), 
+                                    colData = data.frame(celltype=rep(assayNames(scebcrefagg), each=ncol(scebcrefagg))))
+colnames(scebcreffin) <- paste0(colnames(scebcreffin), "_", rep(assayNames(scebcrefagg), each=ncol(scebcrefagg)))
+scebcreffin <- scebcreffin[, colSums(assay(scebcreffin))>0]
+# cbind(colnames(scebcreffin), scebcreffin$celltype)
+
+library(edgeR)
+filter <- filterByExpr(assay(scebcreffin), min.count = 1, group = scebcreffin$celltype)
+scebcreffin <- scebcreffin[filter,]
+sizeFactors(scebcreffin) <- calcNormFactors(assay(scebcreffin))
+scebcreffin <- logNormCounts(scebcreffin)
+scebcreffin <- runPCA(scebcreffin)
+plotPCA(scebcreffin, colour_by = "celltype")
+
+library(BiocParallel)
+library(scran)
+rownames(sce) <- rowData(sce)$V2
+filtered <- sce[intersect(rownames(sce), rownames(scebcreffin)),]
+cl <- quickCluster(filtered, assay.type = "logcounts")
+table(cl)
+filtered <- computeSumFactors(filtered, clusters = cl, BPPARAM = MulticoreParam(workers=8))
+filtered <- logNormCounts(filtered)
+filtered <- runPCA(filtered)
+filtered <- runTSNE(filtered)
+
+nn.clusters <- clusterCells(filtered, use.dimred="PCA")
+filtered$clusters <- nn.clusters
+plotTSNE(filtered, colour_by = "clusters")
+
+dflabs <- SingleR(test=filtered, ref=scebcreffin, labels=scebcreffin$celltype, clusters = filtered$clusters,
+                  BPPARAM = MulticoreParam(workers=8))
+dflabs
+
+# clusters 2, 5, 6, 10 --> CAFs
+# clusters 1, 7 --> cancer epithelial
+
+filtered$celltype <- filtered$clusters
+levels(filtered$celltype) <- dflabs$pruned.labels
+
+plotTSNE(filtered, colour_by = "clusters", text_by = "celltype")
 
