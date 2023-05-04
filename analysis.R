@@ -186,22 +186,43 @@ topRanked <- ordered[ordered$rank.logFC.cohen<=20,]
 atac$clusters <- filtered$clusters
 plotGroupedHeatmap(atac, features=rownames(topRanked), group="clusters", center=TRUE, show_rownames = FALSE, annotation_col=data.frame(celltype=filtered$celltype))
 
+#atac_cafs <- atac[,filtered$clusters %in% c(6, 10)]
 atac_cafs <- atac[,filtered$celltype == "CAFs"]
 mi2 <- scoreMarkers(atac_cafs, atac_cafs$clusters)
 mi2
-chosen <- unique(rbind(mi2[["6"]], mi2[["2"]],mi2[["5"]],mi2[["10"]]))
-ordered <- chosen[order(chosen$rank.logFC.cohen),]
-topRanked <- ordered[ordered$rank.logFC.cohen<=5,]
-plotGroupedHeatmap(atac_cafs, features=unique(rownames(topRanked)), group="clusters", center=TRUE, show_rownames = FALSE)
+chosen <- unique(rbind(mi2[["6"]], mi2[["10"]], mi2[["5"]], mi2[["2"]]))
+ordered <- chosen[order(chosen$rank.AUC),]
+topRanked <- ordered[ordered$rank.AUC<=5,]
+plotGroupedHeatmap(atac_cafs, features=unique(rownames(topRanked)), group="clusters", center=TRUE, show_rownames = FALSE, zlim = c(-.1, .1))
+plotGroupedHeatmap(atac_cafs, features=unique(rownames(topRanked)), group="clusters", center=FALSE, show_rownames = FALSE, zlim = c(0, .2))
 c("COL1A1", "ETS1") %in% rranno[rownames(topRanked),]$SYMBOL
 rranno[rownames(ordered)[1],]
 
-atac_epi <- atac[,filtered$celltype == "Cancer Epithelial"]
-mi3 <- scoreMarkers(atac_epi, atac_epi$clusters)
-mi3
-chosen <- rbind(mi3[["1"]], mi3[["7"]])
-ordered <- chosen[order(chosen$rank.logFC.cohen),]
-topRanked <- ordered[ordered$rank.logFC.cohen<=20,]
-plotGroupedHeatmap(atac_epi, features=rownames(topRanked), group="clusters", center=TRUE, show_rownames = FALSE)
-c("COL1A1", "ETS1") %in% rranno[rownames(topRanked),]$SYMBOL
-rranno[rownames(ordered)[1],]
+# atac_epi <- atac[,filtered$celltype == "Cancer Epithelial"]
+# mi3 <- scoreMarkers(atac_epi, atac_epi$clusters)
+# mi3
+# chosen <- rbind(mi3[["1"]], mi3[["7"]])
+# ordered <- chosen[order(chosen$rank.logFC.cohen),]
+# topRanked <- ordered[ordered$rank.logFC.cohen<=20,]
+# plotGroupedHeatmap(atac_epi, features=rownames(topRanked), group="clusters", center=TRUE, show_rownames = FALSE)
+# c("COL1A1", "ETS1") %in% rranno[rownames(topRanked),]$SYMBOL
+# rranno[rownames(ordered)[1],]
+# plotHeatmap(atac_epi, features=unique(rownames(topRanked)), colour_columns_by = "clusters")
+
+
+reducedDim(atac, "TSNE") <- reducedDim(filtered, "TSNE")
+plotTSNE(atac, colour_by = names(rranno[which(rranno$SYMBOL == "COL1A1"),]))
+scater::plotHighestExprs(atac)
+scater::plotDots(atac, names(rranno[which(rranno$SYMBOL == "COL1A1"),]), group = "clusters") + ggtitle("COL1A1")
+scater::plotDots(atac, names(rranno[which(rranno$SYMBOL == "ETS1"),]), group = "clusters") + ggtitle("ETS1")
+
+library(Gviz)
+library(rtracklayer)
+library(trackViewer)
+rranno <- keepStandardChromosomes(rranno)
+dt <- DataTrack(range=rranno[which(rranno$SYMBOL == "ETS1"),],
+                genome="hg38", type="hist", name="ETS1")
+plotTracks(dt)
+
+counts(filteredpb[names(rranno[which(rranno$SYMBOL == "ETS1"),]),])
+save.image()
